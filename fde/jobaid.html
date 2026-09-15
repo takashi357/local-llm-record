@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>フルリモートFDEジョブエイド — 閉域ローカルLLM導入編</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --card: #fff; --ink: #23211d; --sub: #6f6a60;
+    --line: #e2dfd8; --accent: #2f5d3a; --done: #eef4ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 16px; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    line-height: 1.75; font-size: 15px;
+  }
+  main { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: var(--sub); font-size: 13px; margin: 0 0 20px; }
+  .bar-wrap { background: var(--line); border-radius: 999px; height: 10px; margin: 0 0 6px; }
+  .bar { background: var(--accent); border-radius: 999px; height: 10px; width: 0%; transition: width .2s; }
+  .bar-label { font-size: 12px; color: var(--sub); margin-bottom: 20px; }
+  section {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 14px;
+  }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .why { font-size: 12.5px; color: var(--sub); margin: 0 0 10px; }
+  label.item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 7px 8px; border-radius: 6px; cursor: pointer;
+  }
+  label.item:hover { background: var(--bg); }
+  label.item.done { background: var(--done); color: var(--sub); text-decoration: line-through; }
+  input[type=checkbox] { margin-top: 6px; accent-color: var(--accent); }
+  .note { font-size: 12.5px; color: var(--sub); display: block; text-decoration: none; }
+  textarea.memo {
+    width: 100%; min-height: 44px; margin-top: 10px; padding: 8px 10px;
+    font: inherit; font-size: 13px; border: 1px dashed var(--line);
+    border-radius: 6px; background: var(--bg); color: var(--ink); resize: vertical;
+  }
+  .toolbar { display: flex; gap: 10px; margin: 18px 0 30px; }
+  .toolbar button {
+    padding: 8px 18px; font: inherit; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+  }
+  footer { color: var(--sub); font-size: 12px; margin-top: 8px; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    section { border: 1px solid #999; break-inside: avoid; }
+    .toolbar, .bar-wrap, .bar-label { display: none; }
+    textarea.memo { border: 1px solid #999; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>フルリモートFDEジョブエイド</h1>
+  <p class="lead">閉域ローカルLLM導入編 — 顧客の現場に入れない前提で、導入を成立させるための確認手順。
+  チェック状態とメモはこのブラウザ内にだけ保存されます（外部送信なし）。</p>
+
+  <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+  <div class="bar-label" id="barLabel"></div>
+
+  <section data-phase="p0">
+    <h2>0. 案件開始前 — 契約・条項</h2>
+    <p class="why">なぜ先か: 生成AI利用禁止条項は増えている。技術検討の前に「使ってよい範囲」を文書で確定しないと、納品後に契約違反を指摘されるリスクを受託側が全部負う。</p>
+    <label class="item"><input type="checkbox" data-k="p0-1"><span>契約書・仕様書に生成AIの利用可否条項があるか確認した（全面禁止／条件付き許可／無記載）<span class="note">無記載は「自由」ではない。個人情報・機密の預託があれば委託範囲の問題になる</span></span></label>
+    <label class="item"><input type="checkbox" data-k="p0-2"><span>無記載または曖昧な場合、利用範囲を覚書で合意した（ローカル実行・外部送信なし等の条件を明記）</span></label>
+    <label class="item"><input type="checkbox" data-k="p0-3"><span>扱うデータの区分（公開／内部限り／機密／個人情報）を発注者側に文書で確定してもらった</span></label>
+    <label class="item"><input type="checkbox" data-k="p0-4"><span>再委託・クラウドサービス利用の扱いを確認した（ローカルLLMでも配布元からのモデル取得はネット経由になる点を説明済み）</span></label>
+    <textarea class="memo" data-k="p0-memo" placeholder="メモ（条項の引用、担当者名、合意日など）"></textarea>
+  </section>
+
+  <section data-phase="p1">
+    <h2>1. リモートヒアリング — 環境の同等性</h2>
+    <p class="why">なぜ重要か: 現場に行けないFDEの生命線は「手元に顧客環境と同等の環境を作れるか」。ここの聞き漏らしが後工程の全やり直しになる。</p>
+    <label class="item"><input type="checkbox" data-k="p1-1"><span>実行端末のOS・CPU・実装メモリ・GPU有無を確認した</span></label>
+    <label class="item"><input type="checkbox" data-k="p1-2"><span>WSL利用の場合、実際の割当メモリを確認した（<code>free -h</code>）<span class="note">既定は実機の約半分。16GB機なら7.6GB。12GB級モデルはこの割当では載らない</span></span></label>
+    <label class="item"><input type="checkbox" data-k="p1-3"><span>使用予定モデルのファイルサイズと割当メモリを突き合わせた（生成用＋埋め込み用の同時常駐分まで）</span></label>
+    <label class="item"><input type="checkbox" data-k="p1-4"><span>ネットワーク条件を確認した（閉域／プロキシ／機内モードでの検証が可能か）</span></label>
+    <label class="item"><input type="checkbox" data-k="p1-5"><span>導入可能なソフトの制限を確認した（Ollama／LM Studio／Pythonの持ち込み可否、pipが使えない前提か）</span></label>
+    <textarea class="memo" data-k="p1-memo" placeholder="メモ（端末仕様、制限事項など）"></textarea>
+  </section>
+
+  <section data-phase="p2">
+    <h2>2. 手元での同等環境検証</h2>
+    <p class="why">なぜ重要か: 「自分の環境では動いた」は現場に入れない受託者には通用しない。同等条件での実測値だけが説得力を持つ。</p>
+    <label class="item"><input type="checkbox" data-k="p2-1"><span>顧客環境と同じメモリ割当・同じモデルで手元に再現環境を作った</span></label>
+    <label class="item"><input type="checkbox" data-k="p2-2"><span>対象文書の同一性を確認した（SHA-256を相互に照合。抽出方法の違いで改行・空白が変わるとチャンク割りが変わる）</span></label>
+    <label class="item"><input type="checkbox" data-k="p2-3"><span>方式を実測で選んだ（全文注入かRAGか。RAGはkを振って欠落項目数を数える。「kを増やせば単調に良くなる」は成り立たない）</span></label>
+    <label class="item"><input type="checkbox" data-k="p2-4"><span>実測値を記録した（入力・出力トークン、所要秒、欠落件数）</span></label>
+    <textarea class="memo" data-k="p2-memo" placeholder="メモ（実測値、選定理由など）"></textarea>
+  </section>
+
+  <section data-phase="p3">
+    <h2>3. 導入 — 相手が実行する前提の手順書</h2>
+    <p class="why">なぜ重要か: 閉域環境では最後の実行者は顧客の職員。手順書が製品の一部になる。</p>
+    <label class="item"><input type="checkbox" data-k="p3-1"><span>手順書はコピペで完結する形にした（1コマンド1ブロック、プロンプト記号や実行結果を混ぜない）</span></label>
+    <label class="item"><input type="checkbox" data-k="p3-2"><span>依存ゼロ構成にした（pip不可・追加インストール不可の環境を想定。標準ライブラリのみが最強の互換性）</span></label>
+    <label class="item"><input type="checkbox" data-k="p3-3"><span>失敗時の切り分け表を付けた（接続できない／モデル未ロード／文字化け、の3大失敗それぞれの確認コマンドと対処）</span></label>
+    <label class="item"><input type="checkbox" data-k="p3-4"><span>事前にネット接続が要る工程（モデルの取得）と、以後オフラインで完結する工程を明確に分けて書いた</span></label>
+    <textarea class="memo" data-k="p3-memo" placeholder="メモ"></textarea>
+  </section>
+
+  <section data-phase="p4">
+    <h2>4. 検収 — 出力の照合と非送信の証明</h2>
+    <p class="why">なぜ重要か: 「動きました」では検収にならない。出力の正しさと、データが外に出ていないことの両方を、機械検証可能な形で示す。</p>
+    <label class="item"><input type="checkbox" data-k="p4-1"><span>出力を原典と照合した（欠落・重複・該当なし行を数える。単語一致の自動判定は言い換えを落とすので、判定方法自体も検証する）</span></label>
+    <label class="item"><input type="checkbox" data-k="p4-2"><span>非送信証跡を提示した（実行ごとの外部疎通チェック結果＋入出力ハッシュのチェーン。スクリーンショットより強い）</span></label>
+    <label class="item"><input type="checkbox" data-k="p4-3"><span>証跡の検証を先方の環境・先方の操作で再実行してもらった</span></label>
+    <label class="item"><input type="checkbox" data-k="p4-4"><span>検収条件（何件中何件で合格か）を事前に文書で合意してあった</span></label>
+    <textarea class="memo" data-k="p4-memo" placeholder="メモ（検収結果、立会者など）"></textarea>
+  </section>
+
+  <section data-phase="p5">
+    <h2>5. 引き渡し・運用</h2>
+    <p class="why">なぜ重要か: フルリモートでは「ちょっと見に行く」ができない。引き渡しの完成度が問い合わせ件数を決める。</p>
+    <label class="item"><input type="checkbox" data-k="p5-1"><span>運用者向けの1枚ものを渡した（文書の入れ替えと再インデックスの手順、モデルの入れ替え手順）</span></label>
+    <label class="item"><input type="checkbox" data-k="p5-2"><span>証跡ファイルの保管ルールを決めた（誰が・どこに・いつまで）</span></label>
+    <label class="item"><input type="checkbox" data-k="p5-3"><span>対応範囲を明記した（このコードで保証する範囲と、庁内ネットワーク等の環境要因で保証できない範囲を分けて書面化）</span></label>
+    <textarea class="memo" data-k="p5-memo" placeholder="メモ"></textarea>
+  </section>
+
+  <div class="toolbar">
+    <button id="printBtn">印刷（PDF保存）</button>
+    <button id="resetBtn">チェックを全消去</button>
+  </div>
+
+  <footer>
+    FDE（Forward Deployed Engineer）は顧客側に入り込み導入まで担うエンジニア職。米Palantir発祥、2025年以降は日本のAI企業・SaaS各社にも広がった。
+    本ジョブエイドは、その業務を「現場に入れないフルリモート」で成立させるための確認手順を、閉域ローカルLLM導入の実測記録（本リポジトリ）に基づいてまとめたもの。
+    このファイルは単一HTMLで、外部リソースの読み込み・外部送信はありません。
+  </footer>
+</main>
+<script>
+  const KEY = "fde-jobaid-v1";
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+
+  const boxes = document.querySelectorAll("input[type=checkbox]");
+  const memos = document.querySelectorAll("textarea.memo");
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function refresh() {
+    let done = 0;
+    boxes.forEach(b => {
+      b.checked = !!state[b.dataset.k];
+      b.closest("label").classList.toggle("done", b.checked);
+      if (b.checked) done++;
+    });
+    const pct = Math.round(done / boxes.length * 100);
+    document.getElementById("bar").style.width = pct + "%";
+    document.getElementById("barLabel").textContent =
+      done + " / " + boxes.length + " 完了（" + pct + "%）";
+  }
+
+  boxes.forEach(b => b.addEventListener("change", () => {
+    state[b.dataset.k] = b.checked; save(); refresh();
+  }));
+  memos.forEach(m => {
+    m.value = state[m.dataset.k] || "";
+    m.addEventListener("input", () => { state[m.dataset.k] = m.value; save(); });
+  });
+
+  document.getElementById("printBtn").addEventListener("click", () => window.print());
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if (confirm("チェックとメモを全て消去しますか？")) {
+      state = {}; save();
+      memos.forEach(m => m.value = "");
+      refresh();
+    }
+  });
+
+  refresh();
+</script>
+</body>
+</html>

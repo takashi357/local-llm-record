@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>生成AI配置判定エイド — クラウドか、ガバクラか、ローカルか</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --card: #fff; --ink: #23211d; --sub: #6f6a60;
+    --line: #e2dfd8; --accent: #2f5d3a;
+    --lv0: #2f5d3a; --lv1: #5a7a2e; --lv2: #8a5a1e; --lv3: #7a2e2e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 16px; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    line-height: 1.75; font-size: 15px;
+  }
+  main { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  .lead { color: var(--sub); font-size: 13px; margin: 0 0 20px; }
+  section, .verdict {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 14px;
+  }
+  h2 { font-size: 15px; margin: 0 0 2px; }
+  .qnote { font-size: 12.5px; color: var(--sub); margin: 0 0 10px; }
+  label.opt {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 7px 8px; border-radius: 6px; cursor: pointer;
+  }
+  label.opt:hover { background: var(--bg); }
+  input[type=radio] { margin-top: 6px; accent-color: var(--accent); }
+  .verdict { border-width: 2px; }
+  .verdict h2 { font-size: 17px; }
+  .tag {
+    display: inline-block; padding: 2px 12px; border-radius: 999px;
+    color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px;
+  }
+  .basis { font-size: 13px; color: var(--sub); border-top: 1px dashed var(--line);
+           margin-top: 12px; padding-top: 10px; }
+  .basis b { color: var(--ink); }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  footer { color: var(--sub); font-size: 12px; margin-top: 24px; }
+  footer a { color: var(--accent); }
+  .caveat { background: var(--bg); border-radius: 8px; padding: 10px 14px;
+            font-size: 12.5px; color: var(--sub); margin-top: 14px; }
+  @media print { body { background: #fff; } section, .verdict { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>生成AI配置判定エイド</h1>
+  <p class="lead">扱うデータと契約条件から、「約款型クラウドAI／専用環境／ローカルLLM」のどれが妥当かを整理する。
+  デジタル庁 DS-920 ガイドライン等の公開基準に基づく参考ツール（法的助言ではない）。すべてこのページ内で完結し、外部送信はない。</p>
+
+  <section>
+    <h2>Q1. 扱うデータの中身は？</h2>
+    <p class="qnote">区分の「番号」は団体により付け方が逆のことがある（機密性1が最高機密の団体もある）。名称ではなく中身で選ぶこと。</p>
+    <label class="opt"><input type="radio" name="data" value="0"><span>公開して差し支えない情報（公表済み資料、公開ガイドライン等）</span></label>
+    <label class="opt"><input type="radio" name="data" value="1"><span>非公開だが、漏えいしても影響が限定的な内部情報</span></label>
+    <label class="opt"><input type="radio" name="data" value="2"><span>個人情報、または漏えいで実害が出る機密情報</span></label>
+    <label class="opt"><input type="radio" name="data" value="3"><span>契約・規程で外部送信自体が禁止されているデータ（預かりデータ等）</span></label>
+  </section>
+
+  <section>
+    <h2>Q2. 契約・規程の条件は？</h2>
+    <p class="qnote">仕様書・業務委託契約・組織のAI利用規程を確認。無記載は「自由」ではなく「未整理」。</p>
+    <label class="opt"><input type="radio" name="contract" value="0"><span>生成AI利用への制約は明記されていない（かつ発注者と利用範囲を確認済み）</span></label>
+    <label class="opt"><input type="radio" name="contract" value="1"><span>約款型クラウドサービスの利用に事前協議・承認が必要</span></label>
+    <label class="opt"><input type="radio" name="contract" value="2"><span>生成AIへの入力は専用環境に限る（約款型は不可）</span></label>
+    <label class="opt"><input type="radio" name="contract" value="3"><span>外部送信の禁止・閉域での処理が求められている</span></label>
+  </section>
+
+  <section>
+    <h2>Q3. 使える実行環境は？</h2>
+    <label class="opt"><input type="radio" name="env" value="cloud"><span>クラウドの調達・利用が可能</span></label>
+    <label class="opt"><input type="radio" name="env" value="onprem"><span>庁内・社内のサーバーまで（外部クラウドは不可）</span></label>
+    <label class="opt"><input type="radio" name="env" value="laptop"><span>手元のPCのみ（メモリ16GB級のノートを想定）</span></label>
+  </section>
+
+  <div class="verdict" id="verdict" hidden>
+    <span class="tag" id="tag"></span>
+    <h2 id="title"></h2>
+    <div id="body"></div>
+    <div class="basis" id="basis"></div>
+  </div>
+
+  <div class="caveat">
+    このツールは判定の「たたき台」であり、最終判断は各組織の規程とリスク分析による。
+    特に個人情報は、配置がどこであれ利用目的の範囲・委託該当性の整理が別途必要。
+    判定に迷う場合は、より厳しい側に倒すこと。
+  </div>
+
+  <footer>
+    根拠とした公開資料:
+    <a href="https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/e2a06143-ed29-4f1d-9c31-0f06fca67afc/80419aea/20250527_resources_standard_guidelines_guideline_01.pdf">デジタル庁 DS-920「生成AIの調達・利活用に係るガイドライン」(2025年5月)</a> ／
+    ガバメントクラウド対象CSPはAWS・Microsoft Azure・Google Cloud・Oracle Cloud・さくらのクラウドの5社（2026年時点）。
+    ローカルLLM側の実装と非送信証跡は本リポジトリの genai/ を参照。
+  </footer>
+</main>
+<script>
+  const RULES = {
+    // key: 判定レベル → 表示内容
+    cloud_ok: {
+      color: "var(--lv0)", tag: "約款型クラウドAIで可",
+      title: "一般提供のクラウドAI（約款型）が使える範囲",
+      body: `<ul>
+        <li>利用規約で「入力を学習に使わない」設定にできることを確認する</li>
+        <li>組織のAI利用規程・届出手続きがあれば従う</li>
+        <li>公開情報でも、成果物の確認責任は利用者側に残る</li>
+      </ul>`,
+      basis: "<b>根拠:</b> DS-920は約款型サービスでも、リスク分析を行った上で一定範囲の情報(機密性2の一部まで)を扱いうるとする。公開情報・影響限定の内部情報はその範囲に収まりやすい。"
+    },
+    cloud_cond: {
+      color: "var(--lv1)", tag: "約款型は条件付き",
+      title: "約款型も使えるが、協議・リスク分析を文書で残す",
+      body: `<ul>
+        <li>事前協議・承認を先に済ませ、記録を残す（事後報告は不可）</li>
+        <li>学習利用の設定、保存地域、再委託先をベンダー資料で確認する</li>
+        <li>協議が通らない・時間がかかる場合は、専用環境かローカルに切り替える</li>
+      </ul>`,
+      basis: "<b>根拠:</b> DS-920は約款型の利用に際しリスク分析を求める。契約に事前協議条項がある場合、協議記録そのものが検収時の証跡になる。"
+    },
+    dedicated: {
+      color: "var(--lv2)", tag: "専用環境が必要",
+      title: "約款型は不可。専用環境（ガバクラ上の専用構成 or オンプレ）で",
+      body: `<ul>
+        <li>クラウド調達が可能なら: ガバメントクラウド等の専用環境に、入力が外部の学習に使われない構成でLLMを立てる（対象CSPはAWS/Azure/Google/OCI/さくら）</li>
+        <li>庁内・社内サーバーのみなら: オンプレにローカルLLM（Ollama等）を構築する</li>
+        <li>いずれも「どこにデータが保存され、誰がアクセスできるか」を構成図で説明できる状態にする</li>
+      </ul>`,
+      basis: "<b>根拠:</b> DS-920は個人情報・機密性の高い情報について、入力が利用者への回答生成にのみ使われる仕組み等、約款型を超える管理を求める。"
+    },
+    local: {
+      color: "var(--lv3)", tag: "ローカル/閉域のみ",
+      title: "外部送信ゼロが条件。ローカルLLM＋非送信証跡で",
+      body: `<ul>
+        <li>手元マシンまたは閉域サーバーでローカルLLMを動かす（16GB機・WSL割当7.6GBでも gemma3:4b + bge-m3 で実用になる。本リポジトリ genai/ 参照）</li>
+        <li>「送信していないこと」を実行ごとの証跡で示す（外部疎通チェック＋ハッシュチェーン。genai/evidence.py 参照）</li>
+        <li>モデルの取得だけは事前にネット接続が要る。この工程を導入手順書で明確に分離する</li>
+      </ul>`,
+      basis: "<b>根拠:</b> 契約による外部送信禁止は、ガイドライン上の区分より強い制約として優先する。この場合、配置の選択肢はローカル/閉域しかない。"
+    }
+  };
+
+  function judge() {
+    const g = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
+    const data = g("data"), contract = g("contract"), env = g("env");
+    if (data == null || contract == null || env == null) return;
+
+    const level = Math.max(+data, +contract);
+    let key = ["cloud_ok", "cloud_cond", "dedicated", "local"][level];
+
+    // 実行環境による絞り込み: クラウドが使えないなら専用環境判定はオンプレ/ローカルに落ちる
+    if (key !== "local" && env === "laptop" && level >= 2) key = "local";
+    const r = RULES[key];
+
+    const v = document.getElementById("verdict");
+    v.style.borderColor = r.color;
+    const tag = document.getElementById("tag");
+    tag.textContent = r.tag; tag.style.background = r.color;
+    document.getElementById("title").textContent = r.title;
+    let body = r.body;
+    if (env === "onprem" && (key === "cloud_ok" || key === "cloud_cond")) {
+      body += `<p class="qnote">※実行環境が庁内・社内までのため、実際にはオンプレのローカルLLMが第一候補になる。</p>`;
+    }
+    if (env === "laptop" && (key === "cloud_ok" || key === "cloud_cond")) {
+      body += `<p class="qnote">※手元PCのみの場合、規程上はクラウドも可だが、環境制約からローカルLLM（genai/）が現実解。</p>`;
+    }
+    document.getElementById("body").innerHTML = body;
+    document.getElementById("basis").innerHTML = r.basis;
+    v.hidden = false;
+    v.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  document.querySelectorAll("input[type=radio]").forEach(r =>
+    r.addEventListener("change", judge));
+</script>
+</body>
+</html>

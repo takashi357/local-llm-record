@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文書に聞く — 証跡付きローカルRAG</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --card: #ffffff; --ink: #23211d; --sub: #6f6a60;
+    --line: #e2dfd8; --accent: #2f5d3a; --accent-ink: #ffffff;
+    --ok: #2f5d3a; --warn: #8a5a1e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 16px; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    line-height: 1.7;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lead { color: var(--sub); font-size: 13px; margin: 0 0 24px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 20px; margin-bottom: 16px;
+  }
+  textarea {
+    width: 100%; min-height: 72px; padding: 12px; font: inherit;
+    border: 1px solid var(--line); border-radius: 8px; resize: vertical;
+    background: var(--bg); color: var(--ink);
+  }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .row { display: flex; gap: 12px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    padding: 10px 22px; font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+  }
+  button:disabled { opacity: .5; cursor: wait; }
+  .hint { color: var(--sub); font-size: 12px; }
+  #answer { white-space: pre-wrap; }
+  #meta { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 10px;
+          font-size: 13px; color: var(--sub); display: flex; gap: 16px; flex-wrap: wrap; }
+  .badge {
+    display: inline-block; padding: 1px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: #fff;
+  }
+  .badge.off { background: var(--ok); }
+  .badge.on  { background: var(--warn); }
+  .err { color: #a33; }
+  footer { color: var(--sub); font-size: 12px; margin-top: 24px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>文書に聞く</h1>
+  <p class="lead">docs/ の文書だけを根拠に、手元のモデルが回答します。外部送信なし・実行のたびに証跡を記録。</p>
+
+  <div class="card">
+    <textarea id="q" placeholder="例：個人情報は生成AIに入力していい？"></textarea>
+    <div class="row">
+      <button id="send">質問する</button>
+      <span class="hint" id="status"></span>
+    </div>
+  </div>
+
+  <div class="card" id="result" hidden>
+    <div id="answer"></div>
+    <div id="meta">
+      <span id="net"></span>
+      <span id="sources"></span>
+      <span id="time"></span>
+    </div>
+  </div>
+
+  <footer>この画面は ui.html の1ファイル。サーバーは serve.py（Python標準ライブラリのみ）。外部リソースの読み込みはありません。</footer>
+</main>
+<script>
+  const q = document.getElementById("q");
+  const send = document.getElementById("send");
+  const status_ = document.getElementById("status");
+  const result = document.getElementById("result");
+
+  async function run() {
+    const question = q.value.trim();
+    if (!question) return;
+    send.disabled = true;
+    status_.textContent = "検索と生成を実行中…";
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+
+      document.getElementById("answer").textContent = data.answer;
+      document.getElementById("net").innerHTML = data.offline
+        ? '<span class="badge off">オフライン実行</span>'
+        : '<span class="badge on">オンライン実行</span>';
+      document.getElementById("sources").textContent = "参照元: " + data.sources.join(", ");
+      document.getElementById("time").textContent = "証跡: evidence.jsonl / " + data.timestamp;
+      result.hidden = false;
+      status_.textContent = "";
+    } catch (e) {
+      status_.innerHTML = '<span class="err">エラー: ' + e.message + '</span>';
+    } finally {
+      send.disabled = false;
+    }
+  }
+
+  send.addEventListener("click", run);
+  q.addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
+  });
+</script>
+</body>
+</html>
